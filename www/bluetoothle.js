@@ -1,145 +1,218 @@
+function SlidingWindowReorderer (callback, operation) {
+    console.log("BLEJS: SlidingWindowReorderer created for " + operation);
+    this.operation = operation;
+    this.callback = callback;
+    this.onHold = {};
+    this.nextExpected = 0;
+}
+
+SlidingWindowReorderer.prototype.receiveValue = function(value, sequence) {
+    if (sequence === undefined) {
+        console.log("BLEJS: Sequence not defined for operation " + this.operation);
+    }
+
+    console.log("BLEJS: SlidingWindowReorderer.receiveValue called with sequence " + sequence + " for " + this.operation);
+    console.log("BLEJS: receiveValue.value: " + JSON.stringify(value));
+    /**
+     * If there is not a sequence number present, just pass the callback through
+     * without reordering it.
+     */
+    if (sequence == null) {
+        this.callback(value);
+        return;
+    }
+
+    if (sequence != this.nextExpected) {
+        console.warn(`BLEJS: Received out of order: expected ${this.nextExpected} got ${sequence}. (${this.operation})`);
+    }
+
+    this.onHold[sequence] = value;
+
+    this.tryDispatchInOrder();
+}
+
+SlidingWindowReorderer.prototype.tryDispatchInOrder = function() {
+    while (this.nextExpected in this.onHold) {
+        try {
+            let value = this.onHold[this.nextExpected];
+            delete this.onHold[this.nextExpected];
+
+            this.nextExpected += 1;
+
+            this.callback(value);
+        } catch (error) {
+            console.error("Error in callback in SlidingWindowReorderer", error);
+        }
+    }
+};
+
+function cordovaExec(operation, successCallback, errorCallback, params) {
+  var slidingWindowReorderer = new SlidingWindowReorderer(successCallback, operation);
+
+  // We expect that there are even number of invocations of the success callback of cordova.exec,
+  // where the first returnValue is the value and the second returnValue is the sequence number
+  let isSequenceNumber = false;
+  let value;
+
+  cordova.exec(function(returnValue) {
+    // TODO: Figure out why we only receive the first value of the multipart PluginResult
+    if (!isSequenceNumber) {
+        value = returnValue;
+    } else {
+        slidingWindowReorderer.receiveValue(value, returnValue);
+    }
+
+    isSequenceNumber = !isSequenceNumber;
+
+  }, errorCallback, bluetoothleName, operation, params);
+}
+
 var bluetoothleName = "BluetoothLePlugin";
 var bluetoothle = {
   initialize: function(successCallback, params) {
-    cordova.exec(successCallback, successCallback, bluetoothleName, "initialize", [params]);
+    cordovaExec("initialize", successCallback, /* successCallback */ function (x) {
+        console.log("BLEJS: Error in initialize:");
+        console.error(x);
+    }, [params]);
   },
   enable: function(successCallback, errorCallback) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "enable", []);
+    cordovaExec("enable", successCallback, errorCallback, []);
   },
   disable: function(successCallback, errorCallback) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "disable", []);
+    cordovaExec("disable", successCallback, errorCallback, []);
   },
   getAdapterInfo: function(successCallback) {
-    cordova.exec(successCallback, successCallback, bluetoothleName, "getAdapterInfo", []);
-  },  
+    cordovaExec("getAdapterInfo", successCallback, successCallback, []);
+  },
   startScan: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "startScan", [params]);
+    cordovaExec("startScan", successCallback, errorCallback, [params]);
   },
   stopScan: function(successCallback, errorCallback) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "stopScan", []);
+    cordovaExec("stopScan", successCallback, errorCallback, []);
   },
   retrieveConnected: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "retrieveConnected", [params]);
+    cordovaExec("retrieveConnected", successCallback, errorCallback, [params]);
   },
   bond: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "bond", [params]);
+    cordovaExec("bond", successCallback, errorCallback, [params]);
   },
   unbond: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "unbond", [params]);
+    cordovaExec("unbond", successCallback, errorCallback, [params]);
   },
   connect: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "connect", [params]);
+    cordovaExec("connect", successCallback, errorCallback, [params]);
   },
   reconnect: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "reconnect", [params]);
+    cordovaExec("reconnect", successCallback, errorCallback, [params]);
   },
   disconnect: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "disconnect", [params]);
+    cordovaExec("disconnect", successCallback, errorCallback, [params]);
   },
   close: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "close", [params]);
+    cordovaExec("close", successCallback, errorCallback, [params]);
   },
   discover: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "discover", [params]);
+    cordovaExec("discover", successCallback, errorCallback, [params]);
   },
   services: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "services", [params]);
+    cordovaExec("services", successCallback, errorCallback, [params]);
   },
   characteristics: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "characteristics", [params]);
+    cordovaExec("characteristics", successCallback, errorCallback, [params]);
   },
   descriptors: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "descriptors", [params]);
+    cordovaExec("descriptors", successCallback, errorCallback, [params]);
   },
   read: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "read", [params]);
+    cordovaExec("read", successCallback, errorCallback, [params]);
   },
   subscribe: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "subscribe", [params]);
+    console.log("BLEJS: subscribe called");
+    cordovaExec("subscribe", successCallback, errorCallback, [params]);
   },
   unsubscribe: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "unsubscribe", [params]);
+    cordovaExec("unsubscribe", successCallback, errorCallback, [params]);
   },
   write: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "write", [params]);
+    cordovaExec("write", successCallback, errorCallback, [params]);
   },
   writeQ: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "writeQ", [params]);
+    cordovaExec("writeQ", successCallback, errorCallback, [params]);
   },
   readDescriptor: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "readDescriptor", [params]);
+    cordovaExec("readDescriptor", successCallback, errorCallback, [params]);
   },
   writeDescriptor: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "writeDescriptor", [params]);
+    cordovaExec("writeDescriptor", successCallback, errorCallback, [params]);
   },
   rssi: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "rssi", [params]);
+    cordovaExec("rssi", successCallback, errorCallback, [params]);
   },
   mtu: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "mtu", [params]);
+    cordovaExec("mtu", successCallback, errorCallback, [params]);
   },
   requestConnectionPriority: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "requestConnectionPriority", [params]);
+    cordovaExec("requestConnectionPriority", successCallback, errorCallback, [params]);
   },
   isInitialized: function(successCallback) {
-    cordova.exec(successCallback, successCallback, bluetoothleName, "isInitialized", []);
+    cordovaExec("isInitialized", successCallback, successCallback, []);
   },
   isEnabled: function(successCallback) {
-    cordova.exec(successCallback, successCallback, bluetoothleName, "isEnabled", []);
+    cordovaExec("isEnabled", successCallback, successCallback, []);
   },
   isScanning: function(successCallback) {
-    cordova.exec(successCallback, successCallback, bluetoothleName, "isScanning", []);
+    cordovaExec("isScanning", successCallback, successCallback, []);
   },
   isBonded: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "isBonded", [params]);
+    cordovaExec("isBonded", successCallback, errorCallback, [params]);
   },
   wasConnected: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "wasConnected", [params]);
+    cordovaExec("wasConnected", successCallback, errorCallback, [params]);
   },
   isConnected: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "isConnected", [params]);
+    cordovaExec("isConnected", successCallback, errorCallback, [params]);
   },
   isDiscovered: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "isDiscovered", [params]);
+    cordovaExec("isDiscovered", successCallback, errorCallback, [params]);
   },
   hasPermission: function(successCallback, errorCallback) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "hasPermission", []);
+    cordovaExec("hasPermission", successCallback, errorCallback, []);
   },
   requestPermission: function(successCallback, errorCallback) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "requestPermission", []);
+    cordovaExec("requestPermission", successCallback, errorCallback, []);
   },
   isLocationEnabled: function(successCallback, errorCallback) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "isLocationEnabled", []);
+    cordovaExec("isLocationEnabled", successCallback, errorCallback, []);
   },
   requestLocation: function(successCallback, errorCallback) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "requestLocation", []);
+    cordovaExec("requestLocation", successCallback, errorCallback, []);
   },
   initializePeripheral: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "initializePeripheral", [params]);
+    cordovaExec("initializePeripheral", successCallback, errorCallback, [params]);
   },
   addService: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "addService", [params]);
+    cordovaExec("addService", successCallback, errorCallback, [params]);
   },
   removeService: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "removeService", [params]);
+    cordovaExec("removeService", successCallback, errorCallback, [params]);
   },
   removeAllServices: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "removeAllServices", [params]);
+    cordovaExec("removeAllServices", successCallback, errorCallback, [params]);
   },
   startAdvertising: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "startAdvertising", [params]);
+    cordovaExec("startAdvertising", successCallback, errorCallback, [params]);
   },
   stopAdvertising: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "stopAdvertising", [params]);
+    cordovaExec("stopAdvertising", successCallback, errorCallback, [params]);
   },
   isAdvertising: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "isAdvertising", []);
+    cordovaExec("isAdvertising", successCallback, errorCallback, []);
   },
   respond: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "respond", [params]);
+    cordovaExec("respond", successCallback, errorCallback, [params]);
   },
   notify: function(successCallback, errorCallback, params) {
-    cordova.exec(successCallback, errorCallback, bluetoothleName, "notify", [params]);
+    cordovaExec("notify", successCallback, errorCallback, [params]);
   },
   encodedStringToBytes: function(string) {
     var data = atob(string);
